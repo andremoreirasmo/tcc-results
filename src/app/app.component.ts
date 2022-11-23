@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import {
   ApexAxisChartSeries,
   ApexChart,
@@ -10,6 +11,7 @@ import {
   ApexTitleSubtitle,
   ApexXAxis,
   ApexYAxis,
+  ChartComponent,
 } from 'ng-apexcharts';
 
 type ChartOptions = {
@@ -25,30 +27,41 @@ type ChartOptions = {
   title: ApexTitleSubtitle;
 };
 
+interface ResultCSV {
+  date: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  adjclose: string;
+  volume: string;
+  ticker: string;
+  adjclose_1: number;
+  true_adjclose_1: number;
+  buy_profit: string;
+  sell_profit: '0.042548179626464844\r';
+}
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
+  @ViewChild('chartAmer3') chartAmer3?: ChartComponent;
+  dataAmer3: [ApexAxisChartSeries, ApexXAxis, number] = [[], {}, 0];
+
+  @ViewChild('chartPbr') chartPbr?: ChartComponent;
+  dataPbr: [ApexAxisChartSeries, ApexXAxis, number] = [[], {}, 0];
+
+  @ViewChild('chartMglu') chartMglu?: ChartComponent;
+  dataMglu: [ApexAxisChartSeries, ApexXAxis, number] = [[], {}, 0];
+
   chartOptions: ChartOptions;
 
-  constructor() {
+  constructor(private http: HttpClient) {
     this.chartOptions = {
-      series: [
-        {
-          name: 'Session Duration',
-          data: [45, 52, 38, 24, 33, 26, 21, 20, 6, 8, 15, 10],
-        },
-        {
-          name: 'Page Views',
-          data: [35, 41, 62, 42, 13, 18, 29, 37, 36, 51, 32, 35],
-        },
-        {
-          name: 'Total Visits',
-          data: [87, 57, 74, 99, 75, 38, 62, 47, 82, 56, 45, 47],
-        },
-      ],
+      series: [],
       chart: {
         height: 350,
         type: 'line',
@@ -62,19 +75,10 @@ export class AppComponent {
         dashArray: [0, 8, 5],
       },
       title: {
-        text: 'Page Statistics',
+        text: 'AMER3.SA',
         align: 'left',
       },
-      legend: {
-        tooltipHoverFormatter: function (val, opts) {
-          return (
-            val +
-            ' - <strong>' +
-            opts.w.globals.series[opts.seriesIndex][opts.dataPointIndex] +
-            '</strong>'
-          );
-        },
-      },
+      legend: {},
       markers: {
         size: 0,
         hover: {
@@ -85,49 +89,119 @@ export class AppComponent {
         labels: {
           trim: false,
         },
-        categories: [
-          '01 Jan',
-          '02 Jan',
-          '03 Jan',
-          '04 Jan',
-          '05 Jan',
-          '06 Jan',
-          '07 Jan',
-          '08 Jan',
-          '09 Jan',
-          '10 Jan',
-          '11 Jan',
-          '12 Jan',
-        ],
+        categories: [],
       },
       tooltip: {
-        y: [
-          {
-            title: {
-              formatter: function (val: string) {
-                return val + ' (mins)';
-              },
-            },
+        y: {
+          formatter: (_val: number, opts: any) => {
+            const real = opts.series[1][opts.dataPointIndex];
+            const estimado = opts.series[0][opts.dataPointIndex];
+            const erro =
+              Math.round(this.getErroPercentual(estimado, real) * 100) / 100;
+            return `Valor real: ${real}<br>Valor Estimado:${estimado} <br>Erro percentual: ${erro}`;
           },
-          {
-            title: {
-              formatter: function (val: string) {
-                return val + ' per session';
-              },
-            },
-          },
-          {
-            title: {
-              formatter: function (val: any) {
-                return val;
-              },
-            },
-          },
-        ],
+        },
       },
       grid: {
         borderColor: '#f1f1f1',
       },
     };
+  }
+
+  private getErroPercentual(value: number, trueValue: number) {
+    const diff = Math.abs(value - trueValue);
+
+    return (diff / trueValue) * 100;
+  }
+
+  private csvJSON(csv: string) {
+    const lines = csv.replaceAll('\r', '').split('\n');
+    const result = [];
+    const headers = lines[0].split(',');
+
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i]) continue;
+      const obj: any = {};
+      const currentline = lines[i].split(',');
+
+      for (let j = 0; j < headers.length; j++) {
+        obj[headers[j]] = currentline[j];
+      }
+      result.push(obj);
+    }
+    return result;
+  }
+
+  private loadData(csv: ResultCSV[]): [ApexAxisChartSeries, ApexXAxis, number] {
+    const trueValue = csv.map((e) => Math.round(e.true_adjclose_1 * 100) / 100);
+    const predictValue = csv.map((e) => Math.round(e.adjclose_1 * 100) / 100);
+
+    const series = [
+      {
+        name: `${csv[0].ticker} Valor real`,
+        data: trueValue,
+      },
+      {
+        name: `${csv[0].ticker} Valor estimado`,
+        data: predictValue,
+      },
+    ];
+
+    const categories = csv.map((e) => e.date);
+    const errosPercentuais = trueValue.map((e, i) =>
+      this.getErroPercentual(e, predictValue[i])
+    );
+
+    const erroPercentual =
+      errosPercentuais.reduce((p, c) => p + c) / errosPercentuais.length;
+
+    return [
+      series,
+      {
+        categories,
+      },
+      Math.round(erroPercentual * 100) / 100,
+    ];
+  }
+
+  ngOnInit(): void {
+    this.http
+      .get('assets/AMER3.SA.csv', { responseType: 'text' })
+      .subscribe((data: any) => {
+        const csv: ResultCSV[] = this.csvJSON(data);
+
+        this.dataAmer3 = this.loadData(csv);
+        const [_, xaxis] = this.dataAmer3;
+
+        this.chartAmer3?.updateOptions({
+          xaxis,
+        });
+      });
+
+    this.http
+      .get('assets/PBR.csv', { responseType: 'text' })
+      .subscribe((data: any) => {
+        const csv: ResultCSV[] = this.csvJSON(data);
+
+        this.dataPbr = this.loadData(csv);
+        const [_, xaxis] = this.dataPbr;
+
+        this.chartPbr?.updateOptions({
+          xaxis,
+        });
+      });
+
+    this.http
+      .get('assets/MGLU3.SA.csv', { responseType: 'text' })
+      .subscribe((data: any) => {
+        const csv: ResultCSV[] = this.csvJSON(data);
+
+        this.dataMglu = this.loadData(csv);
+        const [_, xaxis] = this.dataMglu;
+
+        this.chartMglu?.updateOptions({
+          xaxis,
+        });
+      });
   }
 }

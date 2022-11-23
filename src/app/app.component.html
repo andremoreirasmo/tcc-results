@@ -1,15 +1,54 @@
-<!--The content below is only a placeholder and can be replaced.-->
-<div id="chart">
+<div>
   <apx-chart
-    [series]="chartOptions.series"
+    #chartAmer3
+    [series]="dataAmer3[0]"
     [chart]="chartOptions.chart"
-    [xaxis]="chartOptions.xaxis"
+    [xaxis]="dataAmer3[1]"
     [stroke]="chartOptions.stroke"
     [tooltip]="chartOptions.tooltip"
     [dataLabels]="chartOptions.dataLabels"
     [legend]="chartOptions.legend"
     [markers]="chartOptions.markers"
     [grid]="chartOptions.grid"
-    [title]="chartOptions.title"
+    [title]="{
+      text: 'AMER3.SA, erro percentual: ' + dataAmer3[2] + '%',
+      align: 'left'
+    }"
+  ></apx-chart>
+</div>
+<div>
+  <apx-chart
+    #chartPBR
+    [series]="dataPbr[0]"
+    [chart]="chartOptions.chart"
+    [xaxis]="dataPbr[1]"
+    [stroke]="chartOptions.stroke"
+    [tooltip]="chartOptions.tooltip"
+    [dataLabels]="chartOptions.dataLabels"
+    [legend]="chartOptions.legend"
+    [markers]="chartOptions.markers"
+    [grid]="chartOptions.grid"
+    [title]="{
+      text: 'PBR, erro percentual: ' + dataPbr[2] + '%',
+      align: 'left'
+    }"
+  ></apx-chart>
+</div>
+<div>
+  <apx-chart
+    #chartMglu
+    [series]="dataMglu[0]"
+    [chart]="chartOptions.chart"
+    [xaxis]="dataMglu[1]"
+    [stroke]="chartOptions.stroke"
+    [tooltip]="chartOptions.tooltip"
+    [dataLabels]="chartOptions.dataLabels"
+    [legend]="chartOptions.legend"
+    [markers]="chartOptions.markers"
+    [grid]="chartOptions.grid"
+    [title]="{
+      text: 'MGLU3.SA, erro percentual: ' + dataMglu[2] + '%',
+      align: 'left'
+    }"
   ></apx-chart>
 </div>
